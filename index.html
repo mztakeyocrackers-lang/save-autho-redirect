@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Authenticating…</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Sora:wght@300;500;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #080c10;
+      --surface:  #0d1117;
+      --border:   #1e2a36;
+      --glow:     #00d9ff;
+      --glow-dim: rgba(0,217,255,.12);
+      --green:    #39ff8a;
+      --red:      #ff4571;
+      --text:     #c9d6e0;
+      --muted:    #4a6070;
+      --mono:     'JetBrains Mono', monospace;
+      --sans:     'Sora', sans-serif;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+    }
+
+    /* ── background grid ── */
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 44px 44px;
+      opacity: .35;
+      pointer-events: none;
+    }
+
+    /* ── radial spotlight ── */
+    body::after {
+      content: '';
+      position: fixed; inset: 0;
+      background: radial-gradient(ellipse 60% 50% at 50% 50%, rgba(0,217,255,.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    /* ── card ── */
+    .card {
+      position: relative;
+      width: min(480px, calc(100vw - 48px));
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px 36px 36px;
+      box-shadow:
+        0 0 0 1px rgba(0,217,255,.05),
+        0 24px 64px rgba(0,0,0,.6),
+        inset 0 1px 0 rgba(255,255,255,.04);
+      animation: rise .55s cubic-bezier(.22,.68,0,1.2) both;
+    }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(18px) scale(.97); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    /* ── lock icon ── */
+    .icon-wrap {
+      width: 56px; height: 56px;
+      border-radius: 14px;
+      display: grid; place-items: center;
+      margin-bottom: 24px;
+      position: relative;
+      background: var(--glow-dim);
+      border: 1px solid rgba(0,217,255,.2);
+    }
+    .icon-wrap svg { width: 26px; height: 26px; }
+
+    /* ── spinner ring ── */
+    .spinner {
+      position: absolute; inset: -6px;
+      border-radius: 20px;
+      border: 1.5px solid transparent;
+      border-top-color: var(--glow);
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* state classes */
+    .card.success .icon-wrap  { background: rgba(57,255,138,.1); border-color: rgba(57,255,138,.25); }
+    .card.success .spinner    { display: none; }
+    .card.success .icon-wrap svg { color: var(--green); }
+
+    .card.error .icon-wrap    { background: rgba(255,69,113,.1); border-color: rgba(255,69,113,.25); }
+    .card.error .spinner      { display: none; }
+    .card.error .icon-wrap svg { color: var(--red); }
+
+    /* ── text ── */
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -.02em;
+      line-height: 1.2;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      font-size: .875rem;
+      font-weight: 300;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* ── divider ── */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 28px 0;
+    }
+
+    /* ── params table ── */
+    .params {
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .params.visible { display: flex; }
+
+    .param-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+    .param-key {
+      font-family: var(--mono);
+      font-size: .72rem;
+      color: var(--muted);
+      flex-shrink: 0;
+      padding-top: 2px;
+    }
+    .param-val {
+      font-family: var(--mono);
+      font-size: .72rem;
+      color: var(--text);
+      text-align: right;
+      word-break: break-all;
+      max-width: 260px;
+    }
+    .param-val.truncate {
+      max-width: 220px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── status badge ── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--mono);
+      font-size: .68rem;
+      font-weight: 600;
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 6px;
+      margin-top: 20px;
+    }
+    .badge.pending { background: rgba(0,217,255,.08); color: var(--glow); border: 1px solid rgba(0,217,255,.2); }
+    .badge.ok      { background: rgba(57,255,138,.08); color: var(--green); border: 1px solid rgba(57,255,138,.2); }
+    .badge.fail    { background: rgba(255,69,113,.08); color: var(--red);   border: 1px solid rgba(255,69,113,.2); }
+    .badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .badge.pending .dot { animation: pulse 1s ease-in-out infinite; }
+    @keyframes pulse { 0%,100%{opacity:.3} 50%{opacity:1} }
+
+    /* ── close hint ── */
+    .close-hint {
+      font-size: .75rem;
+      color: var(--muted);
+      margin-top: 20px;
+      display: none;
+    }
+    .close-hint.visible { display: block; }
+
+    /* ── glow border on success ── */
+    .card.success {
+      border-color: rgba(57,255,138,.2);
+      box-shadow:
+        0 0 0 1px rgba(57,255,138,.08),
+        0 24px 64px rgba(0,0,0,.6),
+        inset 0 1px 0 rgba(255,255,255,.04);
+    }
+    .card.error {
+      border-color: rgba(255,69,113,.2);
+      box-shadow:
+        0 0 0 1px rgba(255,69,113,.08),
+        0 24px 64px rgba(0,0,0,.6),
+        inset 0 1px 0 rgba(255,255,255,.04);
+    }
+  </style>
+</head>
+<body>
+  <div class="card" id="card">
+    <div class="icon-wrap" id="iconWrap">
+      <div class="spinner" id="spinner"></div>
+      <!-- lock icon (pending / success) -->
+      <svg id="iconLock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" color="var(--glow)">
+        <rect x="3" y="11" width="18" height="11" rx="2"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+      <!-- error icon (hidden until error) -->
+      <svg id="iconError" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="display:none">
+        <circle cx="12" cy="12" r="9"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <circle cx="12" cy="16" r=".5" fill="currentColor"/>
+      </svg>
+    </div>
+
+    <h1 id="heading">Authenticating</h1>
+    <p class="subtitle" id="subtext">Completing your OAuth flow — hang tight.</p>
+
+    <div class="divider" id="divider" style="display:none"></div>
+    <div class="params" id="params"></div>
+
+    <div class="badge pending" id="badge"><span class="dot"></span><span id="badgeText">Processing</span></div>
+    <p class="close-hint" id="closeHint">You may close this tab.</p>
+  </div>
+
+  <script>
+    document.addEventListener('keydown', e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+      }
+    });
+
+    (() => {
+      const card      = document.getElementById('card');
+      const heading   = document.getElementById('heading');
+      const subtext   = document.getElementById('subtext');
+      const badge     = document.getElementById('badge');
+      const badgeText = document.getElementById('badgeText');
+      const paramsEl  = document.getElementById('params');
+      const divider   = document.getElementById('divider');
+      const closeHint = document.getElementById('closeHint');
+      const iconLock  = document.getElementById('iconLock');
+      const iconError = document.getElementById('iconError');
+
+      /* ── parse all possible OAuth params ── */
+      const search = new URLSearchParams(window.location.search);
+      const hash   = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+      const get    = k => search.get(k) || hash.get(k);
+
+      const code        = get('code');
+      const state       = get('state');
+      const token       = get('access_token');
+      const tokenType   = get('token_type');
+      const expiresIn   = get('expires_in');
+      const scope       = get('scope');
+      const idToken     = get('id_token');
+      const errorCode   = get('error');
+      const errorDesc   = get('error_description');
+      const errorUri    = get('error_uri');
+
+      /* ── attempt to notify opener ── */
+      const payload = { source: 'oauth_redirect' };
+      if (code)      payload.code      = code;
+      if (state)     payload.state     = state;
+      if (token)     payload.access_token = token;
+      if (idToken)   payload.id_token  = idToken;
+      if (scope)     payload.scope     = scope;
+      if (errorCode) payload.error     = errorCode;
+      if (errorDesc) payload.error_description = errorDesc;
+
+      if (window.opener) {
+        try { window.opener.postMessage(payload, '*'); } catch (_) {}
+      }
+
+      /* ── helper: add param row ── */
+      function addRow(key, val, truncate = false) {
+        const row = document.createElement('div');
+        row.className = 'param-row';
+        row.innerHTML = `
+          <span class="param-key">${key}</span>
+          <span class="param-val${truncate ? ' truncate' : ''}" title="${val}">${val}</span>`;
+        paramsEl.appendChild(row);
+      }
+
+      /* ── render result ── */
+      function showParams() {
+        if (code)     addRow('code',         code.slice(0,24)+'…', true);
+        if (state)    addRow('state',        state, true);
+        if (token)    addRow('access_token', token.slice(0,24)+'…', true);
+        if (tokenType)addRow('token_type',   tokenType);
+        if (expiresIn)addRow('expires_in',   expiresIn + ' s');
+        if (scope)    addRow('scope',        scope, true);
+        if (idToken)  addRow('id_token',     idToken.slice(0,24)+'…', true);
+        if (paramsEl.children.length) {
+          divider.style.display = '';
+          paramsEl.classList.add('visible');
+        }
+      }
+
+      if (errorCode) {
+        /* ── ERROR state ── */
+        card.classList.add('error');
+        iconLock.style.display = 'none';
+        iconError.style.display = '';
+        heading.textContent = 'Authentication Failed';
+        subtext.textContent = errorDesc
+          ? decodeURIComponent(errorDesc.replace(/\+/g,' '))
+          : 'The authorization server returned an error.';
+        badge.className = 'badge fail';
+        badgeText.textContent = errorCode;
+        divider.style.display = '';
+        if (errorCode) addRow('error',       errorCode);
+        if (errorDesc) addRow('description', decodeURIComponent(errorDesc.replace(/\+/g,' ')), true);
+        if (errorUri)  addRow('info_uri',    errorUri, true);
+        if (paramsEl.children.length) paramsEl.classList.add('visible');
+        closeHint.classList.add('visible');
+
+      } else if (code || token) {
+        /* ── SUCCESS state ── */
+        setTimeout(() => {
+          card.classList.add('success');
+          iconLock.setAttribute('color', 'var(--green)');
+          heading.textContent = 'Authentication Complete';
+          subtext.textContent = token
+            ? 'Access token received. Handing control back to the app.'
+            : 'Authorization code received. Handing control back to the app.';
+          badge.className = 'badge ok';
+          badgeText.textContent = 'Authorized';
+          showParams();
+          closeHint.classList.add('visible');
+        }, 600);
+
+      } else {
+        /* ── WAITING / no params yet ── */
+        heading.textContent = 'Waiting for OAuth';
+        subtext.textContent = 'No authorization data detected in the URL yet.';
+        badge.className = 'badge pending';
+        badgeText.textContent = 'Waiting';
+      }
+    })();
+  </script>
+</body>
+</html>
